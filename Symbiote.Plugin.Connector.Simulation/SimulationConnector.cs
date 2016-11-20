@@ -1,7 +1,4 @@
 ﻿using Symbiote.Core;
-using Symbiote.Core.Configuration;
-using Symbiote.Core.Plugin;
-using Symbiote.Core.Plugin.Connector;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,6 +7,10 @@ using System.Threading.Tasks;
 using NLog;
 using NLog.xLogger;
 using Utility.OperationResult;
+using Symbiote.Core.SDK.Configuration;
+using Symbiote.Core.SDK;
+using Symbiote.Core.SDK.Plugin;
+using Symbiote.Core.SDK.Plugin.Connector;
 
 namespace Symbiote.Plugin.Connector.Simulation
 {
@@ -66,6 +67,8 @@ namespace Symbiote.Plugin.Connector.Simulation
         /// </summary>
         public PluginType PluginType { get; private set; }
 
+        public string Fingerprint { get; private set; }
+
         /// <summary>
         /// The name of the Connector instance.
         /// </summary>
@@ -108,7 +111,7 @@ namespace Symbiote.Plugin.Connector.Simulation
 
         #region Constructors
 
-        public SimulationConnector(ApplicationManager manager, string instanceName, xLogger logger)
+        public SimulationConnector(IApplicationManager manager, string instanceName, xLogger logger)
         {
             InstanceName = instanceName;
             this.logger = logger;
@@ -137,6 +140,8 @@ namespace Symbiote.Plugin.Connector.Simulation
 
         public Result Subscribe(ConnectorItem item)
         {
+            logger.EnterMethod(xLogger.Params(item));
+
             Result retVal = new Result();
 
             try
@@ -153,6 +158,7 @@ namespace Symbiote.Plugin.Connector.Simulation
                 retVal.AddError("Error subscribing to Item '" + item.FQN + "': " + ex.Message);
             }
 
+            logger.ExitMethod(retVal);
             return retVal;
         }
 
@@ -221,6 +227,11 @@ namespace Symbiote.Plugin.Connector.Simulation
         public virtual bool IsInState(params State[] states)
         {
             return states.Any(s => s == State);
+        }
+
+        public void SetFingerprint(string fingerprint)
+        {
+            Fingerprint = fingerprint;
         }
 
         public Result Start()
