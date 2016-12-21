@@ -43,8 +43,8 @@
       <HintPath>..\packages\NLog.xLogger.0.9.2.16\lib\NLog.xLogger.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="Symbiote.Core.SDK">
-      <HintPath>..\..\Symbiote.Core\Symbiote.Core.SDK\bin\Debug\Symbiote.Core.SDK.dll</HintPath>
+    <Reference Include="Symbiote.SDK">
+      <HintPath>..\..\Symbiote.Core\Symbiote.SDK\bin\Debug\Symbiote.SDK.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />

@@ -1,5 +1,4 @@
-﻿using Symbiote.Core;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Timers;
@@ -7,10 +6,10 @@ using System.Threading.Tasks;
 using NLog;
 using NLog.xLogger;
 using Utility.OperationResult;
-using Symbiote.Core.SDK.Configuration;
-using Symbiote.Core.SDK;
-using Symbiote.Core.SDK.Plugin;
-using Symbiote.Core.SDK.Plugin.Connector;
+using Symbiote.SDK.Configuration;
+using Symbiote.SDK;
+using Symbiote.SDK.Plugin;
+using Symbiote.SDK.Plugin.Connector;
 
 namespace Symbiote.Plugin.Connector.Simulation
 {
