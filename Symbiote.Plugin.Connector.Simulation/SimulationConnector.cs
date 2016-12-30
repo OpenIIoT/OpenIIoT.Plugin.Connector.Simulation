@@ -16,7 +16,7 @@ namespace Symbiote.Plugin.Connector.Simulation
     /// <summary>
     ///     Provides simulation data.
     /// </summary>
-    public class SimulationConnector : IConnector, IReadable, ISubscribable, IConfigurable<SimulationConnectorConfiguration>
+    public class SimulationConnector : IConnector, ISubscribable, IConfigurable<SimulationConnectorConfiguration>
     {
         #region Private Fields
 
@@ -54,6 +54,8 @@ namespace Symbiote.Plugin.Connector.Simulation
             Version = "1.0.0.0";
             PluginType = PluginType.Connector;
 
+            ItemProviderName = FQN;
+
             logger.Info("Initializing " + PluginType + " " + FQN + "." + instanceName);
 
             InitializeItems();
@@ -74,6 +76,8 @@ namespace Symbiote.Plugin.Connector.Simulation
         #endregion Public Events
 
         #region Public Properties
+
+        public string ItemProviderName { get; private set; }
 
         public bool AutomaticRestartPending { get; private set; }
 
