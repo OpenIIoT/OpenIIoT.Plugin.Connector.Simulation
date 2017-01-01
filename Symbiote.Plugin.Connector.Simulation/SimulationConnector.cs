@@ -28,7 +28,7 @@ namespace Symbiote.Plugin.Connector.Simulation
         /// <summary>
         ///     The root node for the item tree.
         /// </summary>
-        private ConnectorItem itemRoot;
+        private Item itemRoot;
 
         /// <summary>
         ///     the logger for the Connector.
@@ -60,7 +60,7 @@ namespace Symbiote.Plugin.Connector.Simulation
 
             InitializeItems();
 
-            Subscriptions = new Dictionary<ConnectorItem, int>();
+            Subscriptions = new Dictionary<Item, List<Action<object>>>();
 
             counter = 0;
             timer = new System.Timers.Timer(50);
@@ -113,9 +113,10 @@ namespace Symbiote.Plugin.Connector.Simulation
         public State State { get; private set; }
 
         /// <summary>
-        ///     The dictionary containing the current list of subscribed Items and the number of subscribers for each Item..
+        ///     The <see cref="Dictionary{TKey, TValue}"/> keyed on subscribed Item and containing a <see cref="List{T}"/> of the
+        ///     <see cref="Action{T}"/> delegates used to update the subscribers.
         /// </summary>
-        public Dictionary<ConnectorItem, int> Subscriptions { get; private set; }
+        public Dictionary<Item, List<Action<object>>> Subscriptions { get; protected set; }
 
         /// <summary>
         ///     The Connector Version.
@@ -170,7 +171,7 @@ namespace Symbiote.Plugin.Connector.Simulation
             return itemRoot;
         }
 
-        public List<Item> Browse(Item root)
+        public IList<Item> Browse(Item root)
         {
             return (root == null ? itemRoot.Children : root.Children);
         }
@@ -180,7 +181,7 @@ namespace Symbiote.Plugin.Connector.Simulation
             return await Task.Run(() => Browse());
         }
 
-        public async Task<List<Item>> BrowseAsync(Item root)
+        public async Task<IList<Item>> BrowseAsync(Item root)
         {
             return await Task.Run(() => Browse(root));
         }
@@ -231,51 +232,51 @@ namespace Symbiote.Plugin.Connector.Simulation
             return states.Any(s => s == State);
         }
 
-        public Result<object> Read(Item item)
+        public object Read(Item item)
         {
-            Result<object> retVal = new Result<object>();
+            object retVal = new object();
 
             double val = DateTime.Now.Second;
             switch (item.FQN.Split('.')[item.FQN.Split('.').Length - 1])
             {
                 case "Sine":
-                    retVal.ReturnValue = Math.Sin(val);
+                    retVal = Math.Sin(val);
                     return retVal;
 
                 case "Cosine":
-                    retVal.ReturnValue = Math.Cos(val);
+                    retVal = Math.Cos(val);
                     return retVal;
 
                 case "Tangent":
-                    retVal.ReturnValue = Math.Tan(val);
+                    retVal = Math.Tan(val);
                     return retVal;
 
                 case "Ramp":
-                    retVal.ReturnValue = val;
+                    retVal = val;
                     return retVal;
 
                 case "Step":
-                    retVal.ReturnValue = val % 5;
+                    retVal = val % 5;
                     return retVal;
 
                 case "Toggle":
-                    retVal.ReturnValue = val % 2;
+                    retVal = val % 2;
                     return retVal;
 
                 case "Time":
-                    retVal.ReturnValue = DateTime.Now.ToString("HH:mm:ss.fff");
+                    retVal = DateTime.Now.ToString("HH:mm:ss.fff");
                     return retVal;
 
                 case "Date":
-                    retVal.ReturnValue = DateTime.Now.ToString("MM/dd/yyyy");
+                    retVal = DateTime.Now.ToString("MM/dd/yyyy");
                     return retVal;
 
                 case "TimeZone":
-                    retVal.ReturnValue = DateTime.Now.ToString("zzz");
+                    retVal = DateTime.Now.ToString("zzz");
                     return retVal;
 
                 case "Array":
-                    retVal.ReturnValue = new int[5] { 1, 2, 3, 4, 5 };
+                    retVal = new int[5] { 1, 2, 3, 4, 5 };
                     return retVal;
 
                 default:
@@ -283,7 +284,7 @@ namespace Symbiote.Plugin.Connector.Simulation
             }
         }
 
-        public async Task<Result<object>> ReadAsync(Item item)
+        public async Task<object> ReadAsync(Item item)
         {
             return await Task.Run(() => Read(item));
         }
@@ -315,54 +316,80 @@ namespace Symbiote.Plugin.Connector.Simulation
             return new Result();
         }
 
-        public Result Subscribe(ConnectorItem item)
+        /// <summary>
+        ///     Creates a subscription to the specified Item.
+        /// </summary>
+        /// <remarks>
+        ///     <para>
+        ///         Upon the addition of the initial subscriber, an entry is added to the <see cref="Subscriptions"/> Dictionary
+        ///         keyed with the specified Item with a new <see cref="List{T}"/> of type <see cref="Action{T}"/> containing one
+        ///         entry corresponding to the specified callback delegate.
+        ///     </para>
+        ///     <para>
+        ///         Successive additions add each of the specified callback delegates to the <see cref="Subscriptions"/> dictionary.
+        ///     </para>
+        /// </remarks>
+        /// <param name="item">The <see cref="Item"/> to which the subscription should be added.</param>
+        /// <param name="callback">The callback delegate to be invoked upon change of the subscribed Item.</param>
+        /// <returns>A value indicating whether the operation succeeded.</returns>
+        public bool Subscribe(Item item, Action<object> callback)
         {
-            logger.EnterMethod(xLogger.Params(item));
-
-            Result retVal = new Result();
-
-            try
-            {
-                if (Subscriptions.ContainsKey(item))
-                    Subscriptions[item]++;
-                else
-                    Subscriptions.Add(item, 1);
-
-                retVal.AddInfo("The Item '" + item.FQN + "' now has " + Subscriptions[item] + " subscriber(s).");
-            }
-            catch (Exception ex)
-            {
-                retVal.AddError("Error subscribing to Item '" + item.FQN + "': " + ex.Message);
-            }
-
-            logger.ExitMethod(retVal);
-            return retVal;
-        }
-
-        public Result UnSubscribe(ConnectorItem item)
-        {
-            Result retVal = new Result();
+            bool retVal = false;
 
             try
             {
                 if (!Subscriptions.ContainsKey(item))
-                    retVal.AddError("The Item '" + item.FQN + "' is not currently subscribed.");
-                else
                 {
-                    Subscriptions[item]--;
+                    Subscriptions.Add(item, new List<Action<object>>());
+                }
 
-                    if (Subscriptions[item] <= 0)
+                Subscriptions[item].Add(callback);
+
+                retVal = true;
+            }
+            catch (Exception ex)
+            {
+                logger.Exception(ex);
+            }
+
+            return retVal;
+        }
+
+        /// <summary>
+        ///     Removes a subscription from the specified ConnectorItem.
+        /// </summary>
+        /// <remarks>
+        ///     <para>
+        ///         Upon the removal of a subscriber the specified callback delegate is removed from the corresponding Dictionary
+        ///         entry for the specified <see cref="Item"/>.
+        ///     </para>
+        ///     Upon removal of the final subscriber, the Dictionary key corresponding to the specified <see cref="Item"/> is
+        ///     completely removed.
+        /// </remarks>
+        /// <param name="item">The <see cref="Item"/> for which the subscription should be removed.</param>
+        /// <param name="callback">The callback delegate to be invoked upon change of the subscribed Item.</param>
+        /// <returns>A value indicating whether the operation succeeded.</returns>
+        public bool UnSubscribe(Item item, Action<object> callback)
+        {
+            bool retVal = false;
+
+            try
+            {
+                if (Subscriptions.ContainsKey(item))
+                {
+                    Subscriptions[item].Remove(callback);
+
+                    if (Subscriptions[item].Count == 0)
                     {
                         Subscriptions.Remove(item);
-                        retVal.AddInfo("The Item '" + item.FQN + "' has been fully unsubscribed.");
                     }
-                    else
-                        retVal.AddInfo("The Item '" + item.FQN + "' now has " + Subscriptions[item] + " subscriber(s).");
+
+                    retVal = true;
                 }
             }
             catch (Exception ex)
             {
-                retVal.AddError("Error unsubscribing from Item '" + item.FQN + "': " + ex.Message);
+                logger.Exception(ex);
             }
 
             return retVal;
@@ -393,29 +420,29 @@ namespace Symbiote.Plugin.Connector.Simulation
         private void InitializeItems()
         {
             // instantiate an item root
-            itemRoot = new ConnectorItem(this, InstanceName, true);
+            itemRoot = new Item(InstanceName, this);
 
             // create some simulation items
-            ConnectorItem mathRoot = itemRoot.AddChild(new ConnectorItem(this, "Math")).ReturnValue;
-            mathRoot.AddChild(new ConnectorItem(this, "Sine"));
-            mathRoot.AddChild(new ConnectorItem(this, "Cosine"));
-            mathRoot.AddChild(new ConnectorItem(this, "Tangent"));
+            Item mathRoot = itemRoot.AddChild(new Item("Math", this)).ReturnValue;
+            mathRoot.AddChild(new Item("Sine", this));
+            mathRoot.AddChild(new Item("Cosine", this));
+            mathRoot.AddChild(new Item("Tangent", this));
 
-            ConnectorItem processRoot = itemRoot.AddChild(new ConnectorItem(this, "Process")).ReturnValue;
-            processRoot.AddChild(new ConnectorItem(this, "Ramp"));
-            processRoot.AddChild(new ConnectorItem(this, "Step"));
-            processRoot.AddChild(new ConnectorItem(this, "Toggle"));
+            Item processRoot = itemRoot.AddChild(new Item("Process", this)).ReturnValue;
+            processRoot.AddChild(new Item("Ramp", this));
+            processRoot.AddChild(new Item("Step", this));
+            processRoot.AddChild(new Item("Toggle", this));
 
-            ConnectorItem timeRoot = itemRoot.AddChild(new ConnectorItem(this, "DateTime")).ReturnValue;
-            timeRoot.AddChild(new ConnectorItem(this, "Time"));
-            timeRoot.AddChild(new ConnectorItem(this, "Date"));
-            timeRoot.AddChild(new ConnectorItem(this, "TimeZone"));
+            Item timeRoot = itemRoot.AddChild(new Item("DateTime", this)).ReturnValue;
+            timeRoot.AddChild(new Item("Time", this));
+            timeRoot.AddChild(new Item("Date", this));
+            timeRoot.AddChild(new Item("TimeZone", this));
 
-            ConnectorItem arrayRoot = itemRoot.AddChild(new ConnectorItem(this, "Array")).ReturnValue;
+            Item arrayRoot = itemRoot.AddChild(new Item("Array", this)).ReturnValue;
 
-            ConnectorItem motorRoot = itemRoot.AddChild(new ConnectorItem(this, "Motor")).ReturnValue;
+            Item motorRoot = itemRoot.AddChild(new Item("Motor", this)).ReturnValue;
 
-            ConnectorItem motorArrayRoot = itemRoot.AddChild(new ConnectorItem(this, "MotorArray")).ReturnValue;
+            Item motorArrayRoot = itemRoot.AddChild(new Item("MotorArray", this)).ReturnValue;
         }
 
         private void Timer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
@@ -426,8 +453,13 @@ namespace Symbiote.Plugin.Connector.Simulation
             // will fire the Changed event which will cascade the value through the model
             foreach (Item key in Subscriptions.Keys)
             {
-                if (key.FQN == InstanceName + ".DateTime.Time") key.Write(DateTime.Now.ToString("HH:mm:ss.fff"));
-                if (key.FQN == InstanceName + ".Process.Ramp") key.Write(counter);
+                //if (key.FQN == InstanceName + ".DateTime.Time") key.Write(DateTime.Now.ToString("HH:mm:ss.fff"));
+                //if (key.FQN == InstanceName + ".Process.Ramp") key.Write(counter);
+
+                foreach (Action<object> callback in Subscriptions[key])
+                {
+                    callback.Invoke(DateTime.Now.ToString("HH:mm:ss.fff"));
+                }
             }
         }
 
