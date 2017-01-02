@@ -10,6 +10,9 @@ using Symbiote.SDK.Configuration;
 using Symbiote.SDK;
 using Symbiote.SDK.Plugin;
 using Symbiote.SDK.Plugin.Connector;
+using System.Drawing;
+using System.IO;
+using System.Text;
 
 namespace Symbiote.Plugin.Connector.Simulation
 {
@@ -61,6 +64,8 @@ namespace Symbiote.Plugin.Connector.Simulation
             InitializeItems();
 
             Subscriptions = new Dictionary<Item, List<Action<object>>>();
+
+            ConfigureFileWatch();
 
             counter = 0;
             timer = new System.Timers.Timer(50);
@@ -279,8 +284,91 @@ namespace Symbiote.Plugin.Connector.Simulation
                     retVal = new int[5] { 1, 2, 3, 4, 5 };
                     return retVal;
 
+                case "StaticImage":
+                    retVal = GetStaticImage();
+                    return retVal;
+
+                case "DynamicImage":
+                    retVal = GetDynamicImage();
+                    return retVal;
+
                 default:
                     return retVal;
+            }
+        }
+
+        private byte[] GetDynamicImage()
+        {
+            string fullPath = Path.GetDirectoryName(System.Reflection.Assembly.GetAssembly(GetType()).Location);
+            string fileName = Path.Combine(fullPath, "image.jpg");
+
+            if (File.Exists(fileName))
+            {
+                return ReadFile(fileName);
+            }
+            else
+            {
+                string err = "Not found: " + fileName;
+                return Encoding.ASCII.GetBytes(err);
+            }
+
+            return null;
+        }
+
+        private byte[] ReadFile(string fileName)
+        {
+            byte[] retVal = default(byte[]);
+
+            while (true)
+            {
+                try
+                {
+                    retVal = File.ReadAllBytes(fileName);
+                    break;
+                }
+                catch (IOException ex)
+                {
+                    logger.Info("Deferred read due to " + ex.GetType().Name);
+                    System.Threading.Thread.Sleep(10);
+                }
+            }
+
+            return retVal;
+        }
+
+        private byte[] GetStaticImage()
+        {
+            return ImageToByteArray(Properties.Resources.symbiote);
+        }
+
+        private byte[] ImageToByteArray(Image image)
+        {
+            ImageConverter converter = new ImageConverter();
+            return (byte[])converter.ConvertTo(image, typeof(byte[]));
+        }
+
+        private void ConfigureFileWatch()
+        {
+            FileSystemWatcher watcher = new FileSystemWatcher();
+            watcher.Path = Path.GetDirectoryName(System.Reflection.Assembly.GetAssembly(GetType()).Location);
+            watcher.NotifyFilter = NotifyFilters.LastWrite;
+            watcher.Filter = "image.jpg";
+            watcher.Changed += new FileSystemEventHandler(OnDynamicImageChange);
+            watcher.EnableRaisingEvents = true;
+        }
+
+        private void OnDynamicImageChange(object sender, FileSystemEventArgs args)
+        {
+            logger.Info("File watcher for " + args.FullPath);
+
+            Item key = Find("Simulation.Binary.DynamicImage");
+            if (Subscriptions.ContainsKey(key))
+            {
+                foreach (Action<object> callback in Subscriptions[key])
+                {
+                    callback.Invoke(ReadFile(args.FullPath));
+                    logger.Info("Invoked dynamic image change delegate");
+                }
             }
         }
 
@@ -438,6 +526,10 @@ namespace Symbiote.Plugin.Connector.Simulation
             timeRoot.AddChild(new Item("Date", this));
             timeRoot.AddChild(new Item("TimeZone", this));
 
+            Item binaryRoot = itemRoot.AddChild(new Item("Binary", this)).ReturnValue;
+            binaryRoot.AddChild(new Item("StaticImage", this));
+            binaryRoot.AddChild(new Item("DynamicImage", this));
+
             Item arrayRoot = itemRoot.AddChild(new Item("Array", this)).ReturnValue;
 
             Item motorRoot = itemRoot.AddChild(new Item("Motor", this)).ReturnValue;
@@ -455,10 +547,12 @@ namespace Symbiote.Plugin.Connector.Simulation
             {
                 //if (key.FQN == InstanceName + ".DateTime.Time") key.Write(DateTime.Now.ToString("HH:mm:ss.fff"));
                 //if (key.FQN == InstanceName + ".Process.Ramp") key.Write(counter);
-
-                foreach (Action<object> callback in Subscriptions[key])
+                if (key.FQN.Contains("DateTime.Time"))
                 {
-                    callback.Invoke(DateTime.Now.ToString("HH:mm:ss.fff"));
+                    foreach (Action<object> callback in Subscriptions[key])
+                    {
+                        callback.Invoke(DateTime.Now.ToString("HH:mm:ss.fff"));
+                    }
                 }
             }
         }
