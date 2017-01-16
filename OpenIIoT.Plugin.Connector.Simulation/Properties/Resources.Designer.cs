@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace Symbiote.Plugin.Connector.Simulation.Properties {
+namespace OpenIIoT.Plugin.Connector.Simulation.Properties {
     using System;
     
     
@@ -39,7 +39,7 @@ namespace Symbiote.Plugin.Connector.Simulation.Properties {
         public static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("Symbiote.Plugin.Connector.Simulation.Properties.Resources", typeof(Resources).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("OpenIIoT.Plugin.Connector.Simulation.Properties.Resources", typeof(Resources).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;
@@ -63,9 +63,9 @@ namespace Symbiote.Plugin.Connector.Simulation.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
-        public static System.Drawing.Bitmap symbiote {
+        public static System.Drawing.Bitmap OpenIIoT {
             get {
-                object obj = ResourceManager.GetObject("symbiote", resourceCulture);
+                object obj = ResourceManager.GetObject("OpenIIoT", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }

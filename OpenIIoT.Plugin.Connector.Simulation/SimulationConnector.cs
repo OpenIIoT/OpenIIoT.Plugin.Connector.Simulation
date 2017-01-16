@@ -6,15 +6,15 @@ using System.Threading.Tasks;
 using NLog;
 using NLog.xLogger;
 using Utility.OperationResult;
-using Symbiote.SDK.Configuration;
-using Symbiote.SDK;
-using Symbiote.SDK.Plugin;
-using Symbiote.SDK.Plugin.Connector;
+using OpenIIoT.SDK.Configuration;
+using OpenIIoT.SDK;
+using OpenIIoT.SDK.Plugin;
+using OpenIIoT.SDK.Plugin.Connector;
 using System.Drawing;
 using System.IO;
 using System.Text;
 
-namespace Symbiote.Plugin.Connector.Simulation
+namespace OpenIIoT.Plugin.Connector.Simulation
 {
     /// <summary>
     ///     Provides simulation data.
@@ -53,7 +53,7 @@ namespace Symbiote.Plugin.Connector.Simulation
             this.logger = logger;
 
             Name = "Simulation";
-            FQN = "Symbiote.Plugin.Connector.Simulation";
+            FQN = "OpenIIoT.Plugin.Connector.Simulation";
             Version = "1.0.0.0";
             PluginType = PluginType.Connector;
 
@@ -338,7 +338,7 @@ namespace Symbiote.Plugin.Connector.Simulation
 
         private byte[] GetStaticImage()
         {
-            return ImageToByteArray(Properties.Resources.symbiote);
+            return ImageToByteArray(Properties.Resources.OpenIIoT);
         }
 
         private byte[] ImageToByteArray(Image image)

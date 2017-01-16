@@ -7,8 +7,8 @@
     <ProjectGuid>{369CC5F3-1176-4CD4-9F03-8759610C1C01}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Symbiote.Plugin.Connector.Simulation.Tests</RootNamespace>
-    <AssemblyName>Symbiote.Plugin.Connector.Simulation.Tests</AssemblyName>
+    <RootNamespace>OpenIIoT.Plugin.Connector.Simulation.Tests</RootNamespace>
+    <AssemblyName>OpenIIoT.Plugin.Connector.Simulation.Tests</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{3AC096D0-A1C2-E12C-1390-A8335801FDAB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
