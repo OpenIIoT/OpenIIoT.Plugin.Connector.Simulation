@@ -59,7 +59,7 @@ namespace OpenIIoT.Plugin.Connector.Simulation
             Version = "1.0.0.0";
             PluginType = PluginType.Connector;
 
-            ItemProviderName = FQN;
+            ProviderName = FQN;
 
             logger.Info("Initializing " + PluginType + " " + FQN + "." + instanceName);
 
@@ -84,7 +84,7 @@ namespace OpenIIoT.Plugin.Connector.Simulation
 
         #region Public Properties
 
-        public string ItemProviderName { get; private set; }
+        public string ProviderName { get; private set; }
 
         public bool AutomaticRestartPending { get; private set; }
 
