@@ -313,8 +313,6 @@ namespace OpenIIoT.Plugin.Connector.Simulation
                 string err = "Not found: " + fileName;
                 return Encoding.ASCII.GetBytes(err);
             }
-
-            return null;
         }
 
         private byte[] ReadFile(string fileName)
