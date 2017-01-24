@@ -59,7 +59,7 @@ namespace OpenIIoT.Plugin.Connector.Simulation
             Version = "1.0.0.0";
             PluginType = PluginType.Connector;
 
-            ProviderName = FQN;
+            ItemProviderName = FQN;
 
             logger.Info("Initializing " + PluginType + " " + FQN + "." + instanceName);
 
@@ -84,7 +84,7 @@ namespace OpenIIoT.Plugin.Connector.Simulation
 
         #region Public Properties
 
-        public string ProviderName { get; private set; }
+        public string ItemProviderName { get; private set; }
 
         public bool AutomaticRestartPending { get; private set; }
 
@@ -313,8 +313,6 @@ namespace OpenIIoT.Plugin.Connector.Simulation
                 string err = "Not found: " + fileName;
                 return Encoding.ASCII.GetBytes(err);
             }
-
-            return null;
         }
 
         private byte[] ReadFile(string fileName)
