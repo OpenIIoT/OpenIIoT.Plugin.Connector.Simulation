@@ -49,6 +49,12 @@ namespace OpenIIoT.Plugin.Connector.Simulation
 
         #region Public Constructors
 
+        /// <summary>
+        ///     Initializes a new instance of the <see cref="SimulationConnector"/> class.
+        /// </summary>
+        /// <param name="manager">The ApplicationManager instance.</param>
+        /// <param name="instanceName">The assigned name for this instance.</param>
+        /// <param name="logger">The logger for this instance.</param>
         public SimulationConnector(IApplicationManager manager, string instanceName, xLogger logger)
         {
             InstanceName = instanceName;
@@ -84,14 +90,8 @@ namespace OpenIIoT.Plugin.Connector.Simulation
 
         #region Public Properties
 
-        public string ItemProviderName { get; private set; }
-
         public bool AutomaticRestartPending { get; private set; }
-
         public SimulationConnectorConfiguration Configuration { get; private set; }
-
-        public ConfigurationDefinition ConfigurationDefinition { get; private set; }
-
         public string Fingerprint { get; private set; }
 
         /// <summary>
@@ -103,6 +103,8 @@ namespace OpenIIoT.Plugin.Connector.Simulation
         ///     The name of the Connector instance.
         /// </summary>
         public string InstanceName { get; private set; }
+
+        public string ItemProviderName { get; private set; }
 
         /// <summary>
         ///     The Connector name.
@@ -142,7 +144,7 @@ namespace OpenIIoT.Plugin.Connector.Simulation
         ///     methods in an interface, so implementing IConfigurable will not enforce this.
         /// </summary>
         /// <returns>The ConfigurationDefinition for the Endpoint.</returns>
-        public static ConfigurationDefinition GetConfigurationDefinition()
+        public static IConfigurationDefinition GetConfigurationDefinition()
         {
             ConfigurationDefinition retVal = new ConfigurationDefinition();
 
@@ -200,7 +202,7 @@ namespace OpenIIoT.Plugin.Connector.Simulation
         ///     This is akin to saying "configure yourself using whatever is in the config file"
         /// </summary>
         /// <returns></returns>
-        public Result Configure()
+        public IResult Configure()
         {
             throw new NotImplementedException();
         }
@@ -212,7 +214,7 @@ namespace OpenIIoT.Plugin.Connector.Simulation
         /// </summary>
         /// <param name="configuration">The instance of the model/configuration type to apply.</param>
         /// <returns>A Result containing the result of the operation.</returns>
-        public Result Configure(SimulationConnectorConfiguration configuration)
+        public IResult Configure(SimulationConnectorConfiguration configuration)
         {
             Configuration = configuration;
 
@@ -299,90 +301,17 @@ namespace OpenIIoT.Plugin.Connector.Simulation
             }
         }
 
-        private byte[] GetDynamicImage()
-        {
-            string fullPath = Path.GetDirectoryName(System.Reflection.Assembly.GetAssembly(GetType()).Location);
-            string fileName = Path.Combine(fullPath, "image.jpg");
-
-            if (File.Exists(fileName))
-            {
-                return ReadFile(fileName);
-            }
-            else
-            {
-                string err = "Not found: " + fileName;
-                return Encoding.ASCII.GetBytes(err);
-            }
-        }
-
-        private byte[] ReadFile(string fileName)
-        {
-            byte[] retVal = default(byte[]);
-
-            while (true)
-            {
-                try
-                {
-                    retVal = File.ReadAllBytes(fileName);
-                    break;
-                }
-                catch (IOException ex)
-                {
-                    logger.Info("Deferred read due to " + ex.GetType().Name);
-                    System.Threading.Thread.Sleep(10);
-                }
-            }
-
-            return retVal;
-        }
-
-        private byte[] GetStaticImage()
-        {
-            return ImageToByteArray(Properties.Resources.OpenIIoT);
-        }
-
-        private byte[] ImageToByteArray(Image image)
-        {
-            ImageConverter converter = new ImageConverter();
-            return (byte[])converter.ConvertTo(image, typeof(byte[]));
-        }
-
-        private void ConfigureFileWatch()
-        {
-            FileSystemWatcher watcher = new FileSystemWatcher();
-            watcher.Path = Path.GetDirectoryName(System.Reflection.Assembly.GetAssembly(GetType()).Location);
-            watcher.NotifyFilter = NotifyFilters.LastWrite;
-            watcher.Filter = "image.jpg";
-            watcher.Changed += new FileSystemEventHandler(OnDynamicImageChange);
-            watcher.EnableRaisingEvents = true;
-        }
-
-        private void OnDynamicImageChange(object sender, FileSystemEventArgs args)
-        {
-            logger.Info("File watcher for " + args.FullPath);
-
-            Item key = Find("Simulation.Binary.DynamicImage");
-            if (Subscriptions.ContainsKey(key))
-            {
-                foreach (Action<object> callback in Subscriptions[key])
-                {
-                    callback.Invoke(ReadFile(args.FullPath));
-                    logger.Info("Invoked dynamic image change delegate");
-                }
-            }
-        }
-
         public async Task<object> ReadAsync(Item item)
         {
             return await Task.Run(() => Read(item));
         }
 
-        public Result Restart(StopType stopType = StopType.Stop)
+        public IResult Restart(StopType stopType = StopType.Stop)
         {
             return Start().Incorporate(Stop(stopType | StopType.Restart));
         }
 
-        public Result SaveConfiguration()
+        public IResult SaveConfiguration()
         {
             throw new NotImplementedException();
         }
@@ -392,13 +321,13 @@ namespace OpenIIoT.Plugin.Connector.Simulation
             Fingerprint = fingerprint;
         }
 
-        public Result Start()
+        public IResult Start()
         {
             timer.Start();
             return new Result();
         }
 
-        public Result Stop(StopType stopType = StopType.Stop)
+        public IResult Stop(StopType stopType = StopType.Stop)
         {
             timer.Stop();
             return new Result();
@@ -492,6 +421,16 @@ namespace OpenIIoT.Plugin.Connector.Simulation
 
         #region Private Methods
 
+        private void ConfigureFileWatch()
+        {
+            FileSystemWatcher watcher = new FileSystemWatcher();
+            watcher.Path = Path.GetDirectoryName(System.Reflection.Assembly.GetAssembly(GetType()).Location);
+            watcher.NotifyFilter = NotifyFilters.LastWrite;
+            watcher.Filter = "image.jpg";
+            watcher.Changed += new FileSystemEventHandler(OnDynamicImageChange);
+            watcher.EnableRaisingEvents = true;
+        }
+
         private Item Find(Item root, string fqn)
         {
             if (root.FQN == fqn) return root;
@@ -503,6 +442,33 @@ namespace OpenIIoT.Plugin.Connector.Simulation
                 if (found != default(Item)) break;
             }
             return found;
+        }
+
+        private byte[] GetDynamicImage()
+        {
+            string fullPath = Path.GetDirectoryName(System.Reflection.Assembly.GetAssembly(GetType()).Location);
+            string fileName = Path.Combine(fullPath, "image.jpg");
+
+            if (File.Exists(fileName))
+            {
+                return ReadFile(fileName);
+            }
+            else
+            {
+                string err = "Not found: " + fileName;
+                return Encoding.ASCII.GetBytes(err);
+            }
+        }
+
+        private byte[] GetStaticImage()
+        {
+            return ImageToByteArray(Properties.Resources.OpenIIoT);
+        }
+
+        private byte[] ImageToByteArray(Image image)
+        {
+            ImageConverter converter = new ImageConverter();
+            return (byte[])converter.ConvertTo(image, typeof(byte[]));
         }
 
         private void InitializeItems()
@@ -535,6 +501,42 @@ namespace OpenIIoT.Plugin.Connector.Simulation
             Item motorRoot = itemRoot.AddChild(new Item("Motor", this)).ReturnValue;
 
             Item motorArrayRoot = itemRoot.AddChild(new Item("MotorArray", this)).ReturnValue;
+        }
+
+        private void OnDynamicImageChange(object sender, FileSystemEventArgs args)
+        {
+            logger.Info("File watcher for " + args.FullPath);
+
+            Item key = Find("Simulation.Binary.DynamicImage");
+            if (Subscriptions.ContainsKey(key))
+            {
+                foreach (Action<object> callback in Subscriptions[key])
+                {
+                    callback.Invoke(ReadFile(args.FullPath));
+                    logger.Info("Invoked dynamic image change delegate");
+                }
+            }
+        }
+
+        private byte[] ReadFile(string fileName)
+        {
+            byte[] retVal = default(byte[]);
+
+            while (true)
+            {
+                try
+                {
+                    retVal = File.ReadAllBytes(fileName);
+                    break;
+                }
+                catch (IOException ex)
+                {
+                    logger.Info("Deferred read due to " + ex.GetType().Name);
+                    System.Threading.Thread.Sleep(10);
+                }
+            }
+
+            return retVal;
         }
 
         private void Timer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
