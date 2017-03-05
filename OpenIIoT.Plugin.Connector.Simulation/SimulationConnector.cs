@@ -8,13 +8,13 @@ using NLog.xLogger;
 using Utility.OperationResult;
 using OpenIIoT.SDK.Configuration;
 using OpenIIoT.SDK;
-using OpenIIoT.SDK.Plugin;
-using OpenIIoT.SDK.Plugin.Connector;
 using System.Drawing;
 using System.IO;
 using System.Text;
 using OpenIIoT.SDK.Common;
 using OpenIIoT.SDK.Common.Provider.ItemProvider;
+using OpenIIoT.SDK.Extensibility.Plugin;
+using OpenIIoT.SDK.Extensibility.Plugin.Connector;
 
 namespace OpenIIoT.Plugin.Connector.Simulation
 {
