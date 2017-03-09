@@ -13,8 +13,8 @@ using System.IO;
 using System.Text;
 using OpenIIoT.SDK.Common;
 using OpenIIoT.SDK.Common.Provider.ItemProvider;
-using OpenIIoT.SDK.Extensibility.Plugin;
-using OpenIIoT.SDK.Extensibility.Plugin.Connector;
+using OpenIIoT.SDK.Plugin;
+using OpenIIoT.SDK.Plugin.Connector;
 
 namespace OpenIIoT.Plugin.Connector.Simulation
 {
