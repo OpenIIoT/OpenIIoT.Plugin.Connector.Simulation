@@ -13,8 +13,9 @@ using System.IO;
 using System.Text;
 using OpenIIoT.SDK.Common;
 using OpenIIoT.SDK.Common.Provider.ItemProvider;
-using OpenIIoT.SDK.Extensibility.Plugin;
-using OpenIIoT.SDK.Extensibility.Plugin.Connector;
+using OpenIIoT.SDK.Plugin;
+using OpenIIoT.SDK.Plugin.Connector;
+using System.Runtime.InteropServices;
 
 namespace OpenIIoT.Plugin.Connector.Simulation
 {
@@ -76,7 +77,7 @@ namespace OpenIIoT.Plugin.Connector.Simulation
             ConfigureFileWatch();
 
             counter = 0;
-            timer = new System.Timers.Timer(50);
+            timer = new System.Timers.Timer(10);
             timer.Elapsed += Timer_Elapsed;
         }
 
@@ -171,7 +172,7 @@ namespace OpenIIoT.Plugin.Connector.Simulation
         public static SimulationConnectorConfiguration GetDefaultConfiguration()
         {
             SimulationConnectorConfiguration retVal = new SimulationConnectorConfiguration();
-            retVal.Interval = 1000;
+            retVal.Interval = 100;
             return retVal;
         }
 
@@ -246,10 +247,12 @@ namespace OpenIIoT.Plugin.Connector.Simulation
             object retVal = new object();
 
             double val = DateTime.Now.Second;
+            double ms = DateTime.Now.Millisecond / 10;
+            double count = (double)counter / 10;
             switch (item.FQN.Split('.')[item.FQN.Split('.').Length - 1])
             {
                 case "Sine":
-                    retVal = Math.Sin(val);
+                    retVal = Math.Sin(counter / 10l);
                     return retVal;
 
                 case "Cosine":
@@ -258,6 +261,10 @@ namespace OpenIIoT.Plugin.Connector.Simulation
 
                 case "Tangent":
                     retVal = Math.Tan(val);
+                    return retVal;
+
+                case "Trig":
+                    retVal = new double[4] { count, Math.Sin(count), Math.Cos(count), Math.Tan(count) };
                     return retVal;
 
                 case "Ramp":
@@ -294,6 +301,10 @@ namespace OpenIIoT.Plugin.Connector.Simulation
 
                 case "DynamicImage":
                     retVal = GetDynamicImage();
+                    return retVal;
+
+                case "MousePosition":
+                    retVal = GetCursorPosition();
                     return retVal;
 
                 default:
@@ -421,6 +432,23 @@ namespace OpenIIoT.Plugin.Connector.Simulation
 
         #region Private Methods
 
+        /// <summary>
+        ///     Retrieves the cursor's position, in screen coordinates.
+        /// </summary>
+        /// <see>See MSDN documentation for further information.</see>
+        [DllImport("user32.dll")]
+        private static extern bool GetCursorPos(out POINT lpPoint);
+
+        private static Point GetCursorPosition()
+        {
+            POINT lpPoint;
+            GetCursorPos(out lpPoint);
+            //bool success = User32.GetCursorPos(out lpPoint);
+            // if (!success)
+
+            return lpPoint;
+        }
+
         private void ConfigureFileWatch()
         {
             FileSystemWatcher watcher = new FileSystemWatcher();
@@ -478,6 +506,7 @@ namespace OpenIIoT.Plugin.Connector.Simulation
 
             // create some simulation items
             Item mathRoot = itemRoot.AddChild(new Item("Math", this)).ReturnValue;
+            mathRoot.AddChild(new Item("Trig", this));
             mathRoot.AddChild(new Item("Sine", this));
             mathRoot.AddChild(new Item("Cosine", this));
             mathRoot.AddChild(new Item("Tangent", this));
@@ -496,11 +525,8 @@ namespace OpenIIoT.Plugin.Connector.Simulation
             binaryRoot.AddChild(new Item("StaticImage", this));
             binaryRoot.AddChild(new Item("DynamicImage", this));
 
-            Item arrayRoot = itemRoot.AddChild(new Item("Array", this)).ReturnValue;
-
-            Item motorRoot = itemRoot.AddChild(new Item("Motor", this)).ReturnValue;
-
-            Item motorArrayRoot = itemRoot.AddChild(new Item("MotorArray", this)).ReturnValue;
+            Item miscRoot = itemRoot.AddChild(new Item("Misc", this)).ReturnValue;
+            miscRoot.AddChild(new Item("MousePosition", this));
         }
 
         private void OnDynamicImageChange(object sender, FileSystemEventArgs args)
@@ -556,6 +582,28 @@ namespace OpenIIoT.Plugin.Connector.Simulation
                         callback.Invoke(DateTime.Now.ToString("HH:mm:ss.fff"));
                     }
                 }
+                if (key.FQN.Contains("Math.Sine") || key.FQN.Contains("Math.Trig") || key.FQN.Contains("Misc.MousePosition"))
+                {
+                    foreach (Action<object> callback in Subscriptions[key])
+                    {
+                        callback.Invoke(Read(key));
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        ///     Struct representing a point.
+        /// </summary>
+        [StructLayout(LayoutKind.Sequential)]
+        public struct POINT
+        {
+            public int X;
+            public int Y;
+
+            public static implicit operator Point(POINT point)
+            {
+                return new Point(point.X, point.Y);
             }
         }
 
