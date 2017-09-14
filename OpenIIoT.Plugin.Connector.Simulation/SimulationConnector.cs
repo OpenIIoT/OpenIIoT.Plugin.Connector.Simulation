@@ -16,6 +16,8 @@ using OpenIIoT.SDK.Common.Provider.ItemProvider;
 using OpenIIoT.SDK.Plugin;
 using OpenIIoT.SDK.Plugin.Connector;
 using System.Runtime.InteropServices;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace OpenIIoT.Plugin.Connector.Simulation
 {
@@ -23,8 +25,11 @@ namespace OpenIIoT.Plugin.Connector.Simulation
     {
         #region Private Properties
 
-        private double Max { get; set; }
-        private double Min { get; set; }
+        [JsonProperty(Required = Required.Always)]
+        public double Max { get; set; }
+
+        [JsonProperty(Required = Required.Always)]
+        public double Min { get; set; }
 
         #endregion Private Properties
     }
@@ -87,6 +92,8 @@ namespace OpenIIoT.Plugin.Connector.Simulation
             InitializeItems();
 
             rwValue = new ReadWriteValue();
+            rwValue.Min = 0L;
+            rwValue.Max = 100L;
 
             Subscriptions = new Dictionary<Item, List<Action<object>>>();
 
@@ -356,6 +363,8 @@ namespace OpenIIoT.Plugin.Connector.Simulation
                 default:
                     return retVal;
             }
+
+            logger.Info("Returning: " + JsonConvert.SerializeObject(retVal));
         }
 
         public async Task<object> ReadAsync(Item item)
@@ -479,10 +488,25 @@ namespace OpenIIoT.Plugin.Connector.Simulation
         {
             bool retVal = default(bool);
 
-            logger.Info("Write: " + item + " value: " + value.ToString());
             try
             {
-                rwValue = (ReadWriteValue)item.Value;
+                string obj = ((JObject)value).ToString(Formatting.None);
+                logger.Info("Write: " + item + " value: " + obj);
+
+                rwValue = JsonConvert.DeserializeObject<ReadWriteValue>(obj, new JsonSerializerSettings() { MissingMemberHandling = MissingMemberHandling.Error, CheckAdditionalContent = true });
+
+                // will fire the Changed event which will cascade the value through the model
+                foreach (Item key in Subscriptions.Keys)
+                {
+                    if (key.FQN.Contains("ReadWrite.Read"))
+                    {
+                        foreach (Action<object> callback in Subscriptions[key])
+                        {
+                            callback.Invoke(rwValue);
+                        }
+                    }
+                }
+
                 retVal = true;
             }
             catch (Exception ex)
