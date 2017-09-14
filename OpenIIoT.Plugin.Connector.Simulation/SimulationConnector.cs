@@ -16,13 +16,28 @@ using OpenIIoT.SDK.Common.Provider.ItemProvider;
 using OpenIIoT.SDK.Plugin;
 using OpenIIoT.SDK.Plugin.Connector;
 using System.Runtime.InteropServices;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace OpenIIoT.Plugin.Connector.Simulation
 {
+    public class ReadWriteValue
+    {
+        #region Private Properties
+
+        [JsonProperty(Required = Required.Always)]
+        public double Max { get; set; }
+
+        [JsonProperty(Required = Required.Always)]
+        public double Min { get; set; }
+
+        #endregion Private Properties
+    }
+
     /// <summary>
     ///     Provides simulation data.
     /// </summary>
-    public class SimulationConnector : IConnector, ISubscribable, IConfigurable<SimulationConnectorConfiguration>
+    public class SimulationConnector : IConnector, ISubscribable, IConfigurable<SimulationConnectorConfiguration>, IWriteable
     {
         #region Private Fields
 
@@ -40,6 +55,8 @@ namespace OpenIIoT.Plugin.Connector.Simulation
         ///     the logger for the Connector.
         /// </summary>
         private xLogger logger;
+
+        private ReadWriteValue rwValue;
 
         /// <summary>
         ///     The main timer.
@@ -61,6 +78,8 @@ namespace OpenIIoT.Plugin.Connector.Simulation
             InstanceName = instanceName;
             this.logger = logger;
 
+            Manager = manager;
+
             Name = "Simulation";
             FQN = "OpenIIoT.Plugin.Connector.Simulation";
             Version = "1.0.0.0";
@@ -72,16 +91,22 @@ namespace OpenIIoT.Plugin.Connector.Simulation
 
             InitializeItems();
 
+            rwValue = new ReadWriteValue();
+            rwValue.Min = 0L;
+            rwValue.Max = 100L;
+
             Subscriptions = new Dictionary<Item, List<Action<object>>>();
 
             ConfigureFileWatch();
-
-            counter = 0;
-            timer = new System.Timers.Timer(10);
-            timer.Elapsed += Timer_Elapsed;
         }
 
         #endregion Public Constructors
+
+        #region Private Properties
+
+        private IApplicationManager Manager { get; set; }
+
+        #endregion Private Properties
 
         #region Public Events
 
@@ -159,20 +184,12 @@ namespace OpenIIoT.Plugin.Connector.Simulation
 
             // this will always be typeof(YourConfiguration/ModelObject)
             retVal.Model = typeof(SimulationConnectorConfiguration);
-            return retVal;
-        }
 
-        /// <summary>
-        ///     The GetDefaultConfiguration method is static and returns a default or blank instance of the confguration model/type.
-        ///
-        ///     If the ConfigurationManager fails to retrieve the configuration for an instance it will invoke this method and
-        ///     return this value in lieu of a loaded configuration. This is a failsafe in case the configuration file becomes corrupted.
-        /// </summary>
-        /// <returns></returns>
-        public static SimulationConnectorConfiguration GetDefaultConfiguration()
-        {
-            SimulationConnectorConfiguration retVal = new SimulationConnectorConfiguration();
-            retVal.Interval = 100;
+            SimulationConnectorConfiguration config = new SimulationConnectorConfiguration();
+            config.Interval = 100;
+
+            retVal.DefaultConfiguration = config;
+
             return retVal;
         }
 
@@ -205,7 +222,35 @@ namespace OpenIIoT.Plugin.Connector.Simulation
         /// <returns></returns>
         public IResult Configure()
         {
-            throw new NotImplementedException();
+            logger.EnterMethod();
+            logger.Debug("Attempting to Configure with the configuration from the Configuration Manager...");
+            Result retVal = new Result();
+
+            IResult<SimulationConnectorConfiguration> fetchResult = Manager.GetManager<IConfigurationManager>().Configuration.GetInstance<SimulationConnectorConfiguration>(GetType());
+
+            // if the fetch succeeded, configure this instance with the result.
+            if (fetchResult.ResultCode != ResultCode.Failure)
+            {
+                logger.Debug("Successfully fetched the configuration from the Configuration Manager.");
+                Configure(fetchResult.ReturnValue);
+            }
+            else
+            {
+                // if the fetch failed, add a new default instance to the configuration and try again.
+                logger.Debug("Unable to fetch the configuration.  Adding the default configuration to the Configuration Manager...");
+                IResult<SimulationConnectorConfiguration> createResult = Manager.GetManager<IConfigurationManager>().Configuration.AddInstance<SimulationConnectorConfiguration>(GetType(), GetConfigurationDefinition().DefaultConfiguration);
+                if (createResult.ResultCode != ResultCode.Failure)
+                {
+                    logger.Debug("Successfully added the configuration.  Configuring...");
+                    Configure(createResult.ReturnValue);
+                }
+
+                retVal.Incorporate(createResult);
+            }
+
+            retVal.LogResult(logger.Debug);
+            logger.ExitMethod(retVal);
+            return retVal;
         }
 
         /// <summary>
@@ -251,6 +296,14 @@ namespace OpenIIoT.Plugin.Connector.Simulation
             double count = (double)counter / 10;
             switch (item.FQN.Split('.')[item.FQN.Split('.').Length - 1])
             {
+                case "Read":
+                    retVal = rwValue;
+                    return retVal;
+
+                case "Write":
+                    retVal = rwValue;
+                    return retVal;
+
                 case "Sine":
                     retVal = Math.Sin(counter / 10l);
                     return retVal;
@@ -310,6 +363,8 @@ namespace OpenIIoT.Plugin.Connector.Simulation
                 default:
                     return retVal;
             }
+
+            logger.Info("Returning: " + JsonConvert.SerializeObject(retVal));
         }
 
         public async Task<object> ReadAsync(Item item)
@@ -324,7 +379,7 @@ namespace OpenIIoT.Plugin.Connector.Simulation
 
         public IResult SaveConfiguration()
         {
-            throw new NotImplementedException();
+            return Manager.GetManager<IConfigurationManager>().Configuration.UpdateInstance(this.GetType(), Configuration);
         }
 
         public void SetFingerprint(string fingerprint)
@@ -334,6 +389,12 @@ namespace OpenIIoT.Plugin.Connector.Simulation
 
         public IResult Start()
         {
+            Configure();
+
+            counter = 0;
+            timer = new Timer(Configuration.Interval);
+            timer.Elapsed += Timer_Elapsed;
+
             timer.Start();
             return new Result();
         }
@@ -423,9 +484,42 @@ namespace OpenIIoT.Plugin.Connector.Simulation
             return retVal;
         }
 
-        public Result Write(string item, object value)
+        public bool Write(Item item, object value)
         {
-            return new Result().AddError("The connector is not writeable.");
+            bool retVal = default(bool);
+
+            try
+            {
+                string obj = ((JObject)value).ToString(Formatting.None);
+                logger.Info("Write: " + item + " value: " + obj);
+
+                rwValue = JsonConvert.DeserializeObject<ReadWriteValue>(obj, new JsonSerializerSettings() { MissingMemberHandling = MissingMemberHandling.Error, CheckAdditionalContent = true });
+
+                // will fire the Changed event which will cascade the value through the model
+                foreach (Item key in Subscriptions.Keys)
+                {
+                    if (key.FQN.Contains("ReadWrite.Read"))
+                    {
+                        foreach (Action<object> callback in Subscriptions[key])
+                        {
+                            callback.Invoke(rwValue);
+                        }
+                    }
+                }
+
+                retVal = true;
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex.Message);
+            }
+
+            return retVal;
+        }
+
+        public async Task<bool> WriteAsync(Item item, object value)
+        {
+            return await Task.Run(() => Write(item, value));
         }
 
         #endregion Public Methods
@@ -527,6 +621,10 @@ namespace OpenIIoT.Plugin.Connector.Simulation
 
             Item miscRoot = itemRoot.AddChild(new Item("Misc", this)).ReturnValue;
             miscRoot.AddChild(new Item("MousePosition", this));
+
+            Item rwRoot = itemRoot.AddChild(new Item("ReadWrite", this)).ReturnValue;
+            rwRoot.AddChild(new Item("Read", this));
+            rwRoot.AddChild(new Item("Write", this));
         }
 
         private void OnDynamicImageChange(object sender, FileSystemEventArgs args)
