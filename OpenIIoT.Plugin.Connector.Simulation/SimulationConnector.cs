@@ -61,6 +61,8 @@ namespace OpenIIoT.Plugin.Connector.Simulation
             InstanceName = instanceName;
             this.logger = logger;
 
+            Manager = manager;
+
             Name = "Simulation";
             FQN = "OpenIIoT.Plugin.Connector.Simulation";
             Version = "1.0.0.0";
@@ -75,13 +77,15 @@ namespace OpenIIoT.Plugin.Connector.Simulation
             Subscriptions = new Dictionary<Item, List<Action<object>>>();
 
             ConfigureFileWatch();
-
-            counter = 0;
-            timer = new System.Timers.Timer(10);
-            timer.Elapsed += Timer_Elapsed;
         }
 
         #endregion Public Constructors
+
+        #region Private Properties
+
+        private IApplicationManager Manager { get; set; }
+
+        #endregion Private Properties
 
         #region Public Events
 
@@ -159,20 +163,12 @@ namespace OpenIIoT.Plugin.Connector.Simulation
 
             // this will always be typeof(YourConfiguration/ModelObject)
             retVal.Model = typeof(SimulationConnectorConfiguration);
-            return retVal;
-        }
 
-        /// <summary>
-        ///     The GetDefaultConfiguration method is static and returns a default or blank instance of the confguration model/type.
-        ///
-        ///     If the ConfigurationManager fails to retrieve the configuration for an instance it will invoke this method and
-        ///     return this value in lieu of a loaded configuration. This is a failsafe in case the configuration file becomes corrupted.
-        /// </summary>
-        /// <returns></returns>
-        public static SimulationConnectorConfiguration GetDefaultConfiguration()
-        {
-            SimulationConnectorConfiguration retVal = new SimulationConnectorConfiguration();
-            retVal.Interval = 100;
+            SimulationConnectorConfiguration config = new SimulationConnectorConfiguration();
+            config.Interval = 100;
+
+            retVal.DefaultConfiguration = config;
+
             return retVal;
         }
 
@@ -205,7 +201,35 @@ namespace OpenIIoT.Plugin.Connector.Simulation
         /// <returns></returns>
         public IResult Configure()
         {
-            throw new NotImplementedException();
+            logger.EnterMethod();
+            logger.Debug("Attempting to Configure with the configuration from the Configuration Manager...");
+            Result retVal = new Result();
+
+            IResult<SimulationConnectorConfiguration> fetchResult = Manager.GetManager<IConfigurationManager>().Configuration.GetInstance<SimulationConnectorConfiguration>(GetType());
+
+            // if the fetch succeeded, configure this instance with the result.
+            if (fetchResult.ResultCode != ResultCode.Failure)
+            {
+                logger.Debug("Successfully fetched the configuration from the Configuration Manager.");
+                Configure(fetchResult.ReturnValue);
+            }
+            else
+            {
+                // if the fetch failed, add a new default instance to the configuration and try again.
+                logger.Debug("Unable to fetch the configuration.  Adding the default configuration to the Configuration Manager...");
+                IResult<SimulationConnectorConfiguration> createResult = Manager.GetManager<IConfigurationManager>().Configuration.AddInstance<SimulationConnectorConfiguration>(GetType(), GetConfigurationDefinition().DefaultConfiguration);
+                if (createResult.ResultCode != ResultCode.Failure)
+                {
+                    logger.Debug("Successfully added the configuration.  Configuring...");
+                    Configure(createResult.ReturnValue);
+                }
+
+                retVal.Incorporate(createResult);
+            }
+
+            retVal.LogResult(logger.Debug);
+            logger.ExitMethod(retVal);
+            return retVal;
         }
 
         /// <summary>
@@ -324,7 +348,7 @@ namespace OpenIIoT.Plugin.Connector.Simulation
 
         public IResult SaveConfiguration()
         {
-            throw new NotImplementedException();
+            return Manager.GetManager<IConfigurationManager>().Configuration.UpdateInstance(this.GetType(), Configuration);
         }
 
         public void SetFingerprint(string fingerprint)
@@ -334,6 +358,12 @@ namespace OpenIIoT.Plugin.Connector.Simulation
 
         public IResult Start()
         {
+            Configure();
+
+            counter = 0;
+            timer = new Timer(Configuration.Interval);
+            timer.Elapsed += Timer_Elapsed;
+
             timer.Start();
             return new Result();
         }
