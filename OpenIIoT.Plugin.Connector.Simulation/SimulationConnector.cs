@@ -475,24 +475,25 @@ namespace OpenIIoT.Plugin.Connector.Simulation
             return retVal;
         }
 
-        public IResult Write(Item item, object value)
+        public bool Write(Item item, object value)
         {
-            Result retVal = new Result();
+            bool retVal = default(bool);
 
             logger.Info("Write: " + item + " value: " + value.ToString());
             try
             {
                 rwValue = (ReadWriteValue)item.Value;
+                retVal = true;
             }
             catch (Exception ex)
             {
-                retVal.AddError(ex.Message);
+                logger.Error(ex.Message);
             }
 
             return retVal;
         }
 
-        public async Task<IResult> WriteAsync(Item item, object value)
+        public async Task<bool> WriteAsync(Item item, object value)
         {
             return await Task.Run(() => Write(item, value));
         }
