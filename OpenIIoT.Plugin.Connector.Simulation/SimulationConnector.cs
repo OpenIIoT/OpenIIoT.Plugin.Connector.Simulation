@@ -19,10 +19,20 @@ using System.Runtime.InteropServices;
 
 namespace OpenIIoT.Plugin.Connector.Simulation
 {
+    public class ReadWriteValue
+    {
+        #region Private Properties
+
+        private double Max { get; set; }
+        private double Min { get; set; }
+
+        #endregion Private Properties
+    }
+
     /// <summary>
     ///     Provides simulation data.
     /// </summary>
-    public class SimulationConnector : IConnector, ISubscribable, IConfigurable<SimulationConnectorConfiguration>
+    public class SimulationConnector : IConnector, ISubscribable, IConfigurable<SimulationConnectorConfiguration>, IWriteable
     {
         #region Private Fields
 
@@ -40,6 +50,8 @@ namespace OpenIIoT.Plugin.Connector.Simulation
         ///     the logger for the Connector.
         /// </summary>
         private xLogger logger;
+
+        private ReadWriteValue rwValue;
 
         /// <summary>
         ///     The main timer.
@@ -73,6 +85,8 @@ namespace OpenIIoT.Plugin.Connector.Simulation
             logger.Info("Initializing " + PluginType + " " + FQN + "." + instanceName);
 
             InitializeItems();
+
+            rwValue = new ReadWriteValue();
 
             Subscriptions = new Dictionary<Item, List<Action<object>>>();
 
@@ -275,6 +289,14 @@ namespace OpenIIoT.Plugin.Connector.Simulation
             double count = (double)counter / 10;
             switch (item.FQN.Split('.')[item.FQN.Split('.').Length - 1])
             {
+                case "Read":
+                    retVal = rwValue;
+                    return retVal;
+
+                case "Write":
+                    retVal = rwValue;
+                    return retVal;
+
                 case "Sine":
                     retVal = Math.Sin(counter / 10l);
                     return retVal;
@@ -453,9 +475,26 @@ namespace OpenIIoT.Plugin.Connector.Simulation
             return retVal;
         }
 
-        public Result Write(string item, object value)
+        public IResult Write(Item item, object value)
         {
-            return new Result().AddError("The connector is not writeable.");
+            Result retVal = new Result();
+
+            logger.Info("Write: " + item + " value: " + value.ToString());
+            try
+            {
+                rwValue = (ReadWriteValue)item.Value;
+            }
+            catch (Exception ex)
+            {
+                retVal.AddError(ex.Message);
+            }
+
+            return retVal;
+        }
+
+        public async Task<IResult> WriteAsync(Item item, object value)
+        {
+            return await Task.Run(() => Write(item, value));
         }
 
         #endregion Public Methods
@@ -557,6 +596,10 @@ namespace OpenIIoT.Plugin.Connector.Simulation
 
             Item miscRoot = itemRoot.AddChild(new Item("Misc", this)).ReturnValue;
             miscRoot.AddChild(new Item("MousePosition", this));
+
+            Item rwRoot = itemRoot.AddChild(new Item("ReadWrite", this)).ReturnValue;
+            rwRoot.AddChild(new Item("Read", this));
+            rwRoot.AddChild(new Item("Write", this));
         }
 
         private void OnDynamicImageChange(object sender, FileSystemEventArgs args)
