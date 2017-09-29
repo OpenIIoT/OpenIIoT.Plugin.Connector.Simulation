@@ -56,6 +56,9 @@ namespace OpenIIoT.Plugin.Connector.Simulation
         /// </summary>
         private xLogger logger;
 
+        private Random random;
+
+        private int randomValue;
         private ReadWriteValue rwValue;
 
         /// <summary>
@@ -90,6 +93,9 @@ namespace OpenIIoT.Plugin.Connector.Simulation
             logger.Info("Initializing " + PluginType + " " + FQN + "." + instanceName);
 
             InitializeItems();
+
+            random = new Random();
+            randomValue = 0;
 
             rwValue = new ReadWriteValue();
             rwValue.Min = 0L;
@@ -323,6 +329,14 @@ namespace OpenIIoT.Plugin.Connector.Simulation
                 case "Ramp":
                     retVal = val;
                     return retVal;
+
+                case "Random":
+                    randomValue += random.Next(-1, 2) * random.Next(1, 3);
+
+                    if (randomValue < 0) randomValue = 0;
+                    if (randomValue > 100) randomValue = 100;
+
+                    return randomValue;
 
                 case "Step":
                     retVal = val % 5;
@@ -609,6 +623,7 @@ namespace OpenIIoT.Plugin.Connector.Simulation
             processRoot.AddChild(new Item("Ramp", this));
             processRoot.AddChild(new Item("Step", this));
             processRoot.AddChild(new Item("Toggle", this));
+            processRoot.AddChild(new Item("Random", this));
 
             Item timeRoot = itemRoot.AddChild(new Item("DateTime", this)).ReturnValue;
             timeRoot.AddChild(new Item("Time", this));
@@ -680,7 +695,7 @@ namespace OpenIIoT.Plugin.Connector.Simulation
                         callback.Invoke(DateTime.Now.ToString("HH:mm:ss.fff"));
                     }
                 }
-                if (key.FQN.Contains("Math.Sine") || key.FQN.Contains("Math.Trig") || key.FQN.Contains("Misc.MousePosition"))
+                if (key.FQN.Contains("Math.Sine") || key.FQN.Contains("Math.Trig") || key.FQN.Contains("Misc.MousePosition") || key.FQN.Contains("Process.Random"))
                 {
                     foreach (Action<object> callback in Subscriptions[key])
                     {
