@@ -695,11 +695,18 @@ namespace OpenIIoT.Plugin.Connector.Simulation
                         callback.Invoke(DateTime.Now.ToString("HH:mm:ss.fff"));
                     }
                 }
-                if (key.FQN.Contains("Math.Sine") || key.FQN.Contains("Math.Trig") || key.FQN.Contains("Misc.MousePosition") || key.FQN.Contains("Process.Random"))
+                if (key.FQN.Contains("Math.Sine") || key.FQN.Contains("Math.Trig") || key.FQN.Contains("Misc.MousePosition") || key.FQN.Contains("Random"))
                 {
                     foreach (Action<object> callback in Subscriptions[key])
                     {
-                        callback.Invoke(Read(key));
+                        try
+                        {
+                            callback.Invoke(Read(key));
+                        }
+                        catch (Exception ex)
+                        {
+                            //logger.Error("Error executing callback for subscription to " + key.FQN + "; " + ex.Message);
+                        }
                     }
                 }
             }
