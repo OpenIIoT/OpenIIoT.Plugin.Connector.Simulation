@@ -5,7 +5,7 @@ using System.Timers;
 using System.Threading.Tasks;
 using NLog;
 using NLog.xLogger;
-using Utility.OperationResult;
+using OpenIIoT.SDK.Common.OperationResult;
 using OpenIIoT.SDK.Configuration;
 using OpenIIoT.SDK;
 using System.Drawing;
