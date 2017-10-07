@@ -18,6 +18,8 @@ using OpenIIoT.SDK.Plugin.Connector;
 using System.Runtime.InteropServices;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using OpenIIoT.SDK.Service;
+using OpenIIoT.SDK.Service.WebApi;
 
 namespace OpenIIoT.Plugin.Connector.Simulation
 {
@@ -109,6 +111,8 @@ namespace OpenIIoT.Plugin.Connector.Simulation
         #endregion Public Constructors
 
         #region Private Properties
+
+        public static IRoutes Routes { get; set; }
 
         private IApplicationManager Manager { get; set; }
 
@@ -404,6 +408,10 @@ namespace OpenIIoT.Plugin.Connector.Simulation
         public IResult Start()
         {
             Configure();
+
+            IServiceManager serviceManager = Manager.GetManager<IServiceManager>();
+            IWebApiService webApiService = (IWebApiService)serviceManager.Services["WebApiService"];
+            Routes = webApiService.Routes;
 
             counter = 0;
             timer = new Timer(Configuration.Interval);
