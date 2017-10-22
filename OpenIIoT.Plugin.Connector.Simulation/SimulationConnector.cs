@@ -112,8 +112,6 @@ namespace OpenIIoT.Plugin.Connector.Simulation
 
         #region Private Properties
 
-        public static IRoutes Routes { get; set; }
-
         private IApplicationManager Manager { get; set; }
 
         #endregion Private Properties
@@ -408,10 +406,6 @@ namespace OpenIIoT.Plugin.Connector.Simulation
         public IResult Start()
         {
             Configure();
-
-            IServiceManager serviceManager = Manager.GetManager<IServiceManager>();
-            IWebApiService webApiService = (IWebApiService)serviceManager.Services["WebApiService"];
-            Routes = webApiService.Routes;
 
             counter = 0;
             timer = new Timer(Configuration.Interval);
