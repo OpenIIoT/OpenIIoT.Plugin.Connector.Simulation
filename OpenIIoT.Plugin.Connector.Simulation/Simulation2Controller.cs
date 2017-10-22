@@ -7,7 +7,7 @@ using System.Web.Http;
 
 namespace OpenIIoT.Plugin.Connector.Simulation
 {
-    [WebApiRoutePrefix("v2/simulation2")]
+    [RoutePrefix("v2/simulation2")]
     public class Simulation2Controller : ApiController
     {
         #region Public Methods
